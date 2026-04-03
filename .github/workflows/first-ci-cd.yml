@@ -38,18 +38,21 @@ jobs:
    needs: test
 
    steps:
-     - name: Setup SSH
-       uses: webfactory/ssh-agent@v0.9.0
-       with:
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
         ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-     - name: Deploy to EC2
-       run: |
-         ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+    - name: Deploy to EC2
+      run: |
+        ssh -o BatchMode=yes -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          set -e
 
-          cd ~/app || mkdir -p ~/app && cd ~/app
+          echo "Starting deployment..."
 
-          # Initialize repo if first time
+          mkdir -p ~/app
+          cd ~/app
+
           if [ ! -d ".git" ]; then
             git clone https://github.com/StrikerAbir/CI-CD-Test-With-Action.git .
           else
@@ -58,9 +61,14 @@ jobs:
 
           npm install
 
-          # Best practice update
-          pm2 reload node-app || pm2 start src/server.js --name node-app
+          # Prevent reload issues
+          if pm2 list | grep -q "node-app"; then
+            pm2 restart node-app
+          else
+            pm2 start src/server.js --name node-app
+          fi
 
           pm2 save
 
-          EOF
+          echo "Deployment complete."
+        EOF
