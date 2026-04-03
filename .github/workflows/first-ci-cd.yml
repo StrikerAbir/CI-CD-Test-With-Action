@@ -32,3 +32,35 @@ jobs:
         with:
           name: test-results
           path: test-results/
+          
+  deploy:
+   runs-on: self-hosted
+   needs: test
+
+   steps:
+     - name: Setup SSH
+       uses: webfactory/ssh-agent@v0.9.0
+       with:
+        ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+     - name: Deploy to EC2
+       run: |
+         ssh -i ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+
+          cd ~/app || mkdir -p ~/app && cd ~/app
+
+          # Initialize repo if first time
+          if [ ! -d ".git" ]; then
+            git clone https://github.com/StrikerAbir/CI-CD-Test-With-Action.git .
+          else
+            git pull origin main
+          fi
+
+          npm install
+
+          # Best practice update
+          pm2 reload node-app || pm2 start src/server.js --name node-app
+
+          pm2 save
+
+          EOF
