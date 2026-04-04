@@ -2,8 +2,7 @@ name: Test Application
 
 on:
   push:
-    branches: [ "main" ]
-
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -32,30 +31,31 @@ jobs:
         with:
           name: test-results
           path: test-results/
-          
-  deploy:
-   runs-on: self-hosted
-      
-   steps:
-    - name: Deploy to EC2
-      run: |
-        ssh -o BatchMode=yes -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-          set -e
 
+  deploy:
+    runs-on: self-hosted
+    needs: test   # ✅ ensures deploy runs after test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get Runner Public IP
+        run: |
+          echo "Runner Public IP:"
+          curl -s http://api.ipify.org
+
+      - name: Deploy to EC2
+        run: |
           echo "Starting deployment..."
 
-          mkdir -p ~/app
-          cd ~/app
+          # Pull latest code
+          git pull origin main
 
-          if [ ! -d ".git" ]; then
-            git clone https://github.com/StrikerAbir/CI-CD-Test-With-Action.git .
-          else
-            git pull origin main
-          fi
+          # Install dependencies
+          npm ci
 
-          npm install
-
-          # Prevent reload issues
+          # Start or restart app with PM2
           if pm2 list | grep -q "node-app"; then
             pm2 restart node-app
           else
@@ -65,6 +65,3 @@ jobs:
           pm2 save
 
           echo "Deployment complete."
-        EOF
-          
-   
