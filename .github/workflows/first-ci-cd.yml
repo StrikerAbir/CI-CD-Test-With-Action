@@ -37,74 +37,87 @@ jobs:
     needs: test
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Deploy Application
-      run: |
-        set -euo pipefail
+      - name: Deploy Application
+        run: |
+          set -euo pipefail
 
-        mkdir -p deploy-results
+          mkdir -p deploy-results
 
-        {
-          echo "======================================"
-          echo "🚀 Deployment Started: $(date)"
-          echo "======================================"
+          {
+             echo "🚀 Starting deployment..."
+
+              APP_DIR="$HOME/app"
+              REPO_URL="https://github.com/StrikerAbir/CI-CD-Test-With-Action.git"
 
           # -------------------------------
-          # Setup NVM
+          # Setup NVM + Node 22
           # -------------------------------
           export NVM_DIR="$HOME/.nvm"
 
           if [ ! -d "$NVM_DIR" ]; then
-            echo "Installing NVM..."
             curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
           fi
 
           [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-          # -------------------------------
-          # Use Node.js 22
-          # -------------------------------
           nvm use 22 || nvm install 22
           nvm alias default 22
 
           echo "Node: $(node -v)"
-          echo "npm: $(npm -v)"
 
-
-          # Install PM2
+          # -------------------------------
+          # Ensure PM2
           # -------------------------------
           if ! command -v pm2 >/dev/null 2>&1; then
-            echo "Installing PM2..."
             npm install -g pm2
             pm2 startup systemd -u $USER --hp $HOME
           fi
 
-          
+          # -------------------------------
+          # Clone OR Update repo (IMPORTANT)
+          # -------------------------------
+          if [ ! -d "$APP_DIR/.git" ]; then
+            echo "📦 Cloning repo..."
+            git clone "git@github.com:StrikerAbir/github-actions-fundamentals.git" "$APP_DIR"
+          fi
+
+          cd "$APP_DIR"
+
+          echo "🔄 Updating code..."
+
+          git fetch origin main
+          git reset --hard origin/main
+          git clean -fd
+
+          # -------------------------------
           # Install dependencies
           # -------------------------------
-          echo "Installing dependencies..."
+          echo "📦 Installing dependencies..."
           npm ci --omit=dev
 
-          # Start / Restart App
+          # -------------------------------
+          # Start / Restart app
           # -------------------------------
           if pm2 describe node-app >/dev/null 2>&1; then
-            echo "Restarting app..."
+            echo "🔄 Restarting app..."
             pm2 restart node-app
           else
-            echo "Starting app..."
+            echo "▶️ Starting app..."
             pm2 start src/server.js --name node-app
           fi
 
           pm2 save
 
-          echo "Deployment Successful..."
+          echo "======================================"
+          echo "✅ Deployment Successful"
+          echo "======================================"
+          } > deploy-results/deploy-log.txt 2>&1
 
-        } > deploy-results/deploy-log.txt 2>&1
-
-    - name: Upload deploy logs
-      uses: actions/upload-artifact@v4
-      with:
-        name: deploy-results
-        path: deploy-results/
+      - name: Upload deploy logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-results
+          path: deploy-results/
