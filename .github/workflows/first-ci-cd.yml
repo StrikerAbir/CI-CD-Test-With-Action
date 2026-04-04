@@ -81,7 +81,7 @@ jobs:
           # -------------------------------
           if [ ! -d "$APP_DIR/.git" ]; then
             echo "📦 Cloning repo..."
-            git clone "git@github.com:StrikerAbir/github-actions-fundamentals.git" "$APP_DIR"
+            git clone "https://github.com/StrikerAbir/CI-CD-Test-With-Action.git" "$APP_DIR"
           fi
 
           cd "$APP_DIR"
